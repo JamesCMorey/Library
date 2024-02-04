@@ -6,8 +6,8 @@
 #define SIZE 4096
 
 struct hm_entry {
-	char *key;
-	char *value;
+	void *key;
+	void *value;
 };
 
 struct hashmap {
@@ -17,10 +17,11 @@ struct hashmap {
 };
 
 unsigned long hash(unsigned char *str);
-void init_hm(struct hashmap **hm, size_t capacity);
-void add_entry(struct hashmap *hm, char *key, char *value);
+void init_hm(struct hashmap **hm, size_t capacity, int typesize, int arraysize);
+void add_entry(struct hashmap *hm, void *key, void *value);
 struct hm_entry *get_entry(struct hashmap *hm, void *key);
 void print_hm(struct hashmap *hm);
+void del_entry(struct hashmap *hm, void *key);
 
 int main()
 {
@@ -29,7 +30,7 @@ int main()
 	char value[SIZE] = "2ji3o";
 
 	// hm mani
-	init_hm(&test, 12);
+	init_hm(&test, 12, sizeof(char), 4096);
 	add_entry(test, "test", "sendit");
 	add_entry(test, "asdf", "sendit");
 	add_entry(test, "iwoef", "sendit");
@@ -61,7 +62,7 @@ struct hm_entry *get_entry(struct hashmap *hm, void *key)
 	return &hm->entries[index];
 }
 
-void add_entry(struct hashmap *hm, char *key, char *value)
+void add_entry(struct hashmap *hm, void *key, void *value)
 {
 	int index = hash(key) % hm->capacity;
 	printf("Index: %d\n", index);
@@ -73,15 +74,16 @@ void add_entry(struct hashmap *hm, char *key, char *value)
 
 	// look for index not already in use and check to make sure key is not
 	// already in use
-	struct hm_entry entry;
-	while ((entry = hm->entries[index]).key[0] != '\0') {
+	// convert void * to char * so that it can be indexed with [] operator
+	struct hm_entry entry = hm->entries[index];
+	while (((char *)entry.key)[0] != '\0') {
 
 		if (!strcmp(entry.key, key)) {
 			printf("Key (%s, %s) already in use\n", key, entry.key);
 			return;
 		}
 
-		index++;
+		entry = hm->entries[index++];
 	}
 
 	// copy the data in so that they all point to different memory locations
@@ -89,7 +91,7 @@ void add_entry(struct hashmap *hm, char *key, char *value)
 	strncpy(entry.value, value, SIZE - 1);
 }
 
-void init_hm(struct hashmap **hm, size_t capacity)
+void init_hm(struct hashmap **hm, size_t capacity, int typesize, int arraysize)
 {
 	*hm = malloc(sizeof(struct hashmap));
 
@@ -97,8 +99,8 @@ void init_hm(struct hashmap **hm, size_t capacity)
 	(**hm).entries = calloc(capacity, sizeof(struct hm_entry));
 	// give char * vars in entry some memory to memcpy to later
 	for (int i = 0; i < capacity; i++) {
-		(**hm).entries[i].key = calloc(SIZE, sizeof(char));
-		(**hm).entries[i].value = calloc(SIZE, sizeof(char));
+		(**hm).entries[i].key = calloc(arraysize, typesize);
+		(**hm).entries[i].value = calloc(arraysize, typesize);
 	}
 
 	(**hm).capacity = capacity;
